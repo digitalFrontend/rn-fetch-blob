@@ -10,16 +10,23 @@ import android.provider.MediaStore;
 import android.content.ContentUris;
 import android.os.Environment;
 import android.content.ContentResolver;
+import android.util.Log;
+
 import com.RNFetchBlob.RNFetchBlobUtils;
+
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStream;
 import java.io.FileOutputStream;
+import java.io.InputStreamReader;
 
 public class PathResolver {
     @TargetApi(19)
     public static String getRealPathFromURI(final Context context, final Uri uri) {
 
         final boolean isKitKat = Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT;
+
+
 
         // DocumentProvider
         if (isKitKat && DocumentsContract.isDocumentUri(context, uri)) {
@@ -46,10 +53,25 @@ public class PathResolver {
                         String path = rawuri.getPath();
                         return path;
                     }
-                    final Uri contentUri = ContentUris.withAppendedId(
-                            Uri.parse("content://downloads/public_downloads"), Long.valueOf(id));
 
-                    return getDataColumn(context, contentUri, null, null);
+
+
+                    Uri contentUri = ContentUris.withAppendedId(Uri.parse("content://downloads/public_downloads"), Long.valueOf(id));
+                    String path = getDataColumn(context, contentUri, null, null);
+                    if (path != null){
+                        return path;
+                    }
+                    
+
+                    String fileName = getDataColumn(context, uri, null, null);
+                    
+                    String uriToReturn = null;
+                    if(fileName != null){
+                        uriToReturn = Uri.withAppendedPath(Uri.parse(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).getAbsolutePath()), fileName).toString();
+                    }
+                    
+                    return uriToReturn;
+
                 }
                 catch (Exception ex) {
                     //something went wrong, but android should still be able to handle the original uri by returning null here (see readFile(...))
@@ -160,6 +182,7 @@ public class PathResolver {
                 column
         };
 
+
         try {
             cursor = context.getContentResolver().query(uri, projection, selection, selectionArgs,
                     null);
@@ -167,15 +190,37 @@ public class PathResolver {
                 final int index = cursor.getColumnIndexOrThrow(column);
                 result = cursor.getString(index);
             }
+
         }
         catch (Exception ex) {
             ex.printStackTrace();
-            return null;
+            result = null;
         }
         finally {
             if (cursor != null)
                 cursor.close();
         }
+
+        if (result != null){
+            return result;
+        }
+
+        try{
+            cursor = context.getContentResolver().query(uri, null, selection, selectionArgs,
+                    null);
+            if (cursor != null && cursor.moveToFirst()) {
+                int columnIndex = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DISPLAY_NAME); //_display_name
+                return cursor.getString(columnIndex); //returns file name
+            }
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            result = null;
+        }
+        finally {
+            if (cursor != null)
+                cursor.close();
+        }
+
         return result;
     }
 
