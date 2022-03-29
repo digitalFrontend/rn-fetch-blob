@@ -2,6 +2,7 @@ package com.RNFetchBlob;
 
 import android.app.Activity;
 import android.app.DownloadManager;
+import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
@@ -108,11 +109,11 @@ public class RNFetchBlob extends ReactContextBaseJavaModule {
     @ReactMethod
     public void actionViewIntent(String path, String mime, final Promise promise) {
         try {
-            Uri uriForFile = FileProvider.getUriForFile(getCurrentActivity(),
+            Uri uriForFile = FileProvider.getUriForFile(this.getReactApplicationContext(),
                     this.getReactApplicationContext().getPackageName() + ".provider", new File(path));
 
             Intent intent = new Intent(Intent.ACTION_VIEW);
-            if (Build.VERSION.SDK_INT >= 24) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                 // Create the intent with data and type
                 intent.setDataAndType(uriForFile, mime);
 
@@ -128,10 +129,10 @@ public class RNFetchBlob extends ReactContextBaseJavaModule {
             }
 
             PackageManager pm = getCurrentActivity().getPackageManager();
-            if (intent.resolveActivity(pm) != null) {
+            try {
                 this.getReactApplicationContext().startActivity(intent);
                 promise.resolve(true);
-            } else {
+            } catch (ActivityNotFoundException ex) {
                 promise.reject("ENOAPP", "No app installed for " + mime);
             }
             ActionViewVisible = true;
